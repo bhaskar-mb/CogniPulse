@@ -1,0 +1,37 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel-schema.json",
+  "installCommand": "npm install",
+  "buildCommand": "VITE_BASE_PATH= VITE_SOCKET_URL=https://cognipulse.fun npm run build",
+  "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/cognipulse/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/cognipulse/(.*)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/spandan/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/spandan/(.*)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

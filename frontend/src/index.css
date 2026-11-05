@@ -1,0 +1,323 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* Theme Variables - Light (default) */
+:root {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-rgb: 255, 255, 255; /* rgb triplet of --bg-card, for alpha gradients (scroll fades) */
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --header-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #1e3a5f 75%, #2563eb 100%);
+  --sidebar-bg: #ffffff;
+  --sidebar-shadow: 2px 0 20px rgba(0,0,0,0.06);
+  --nav-hover: #f1f5f9;
+  --input-bg: #ffffff;
+
+  /* Layout + modern design tokens (shared across pages) */
+  --sidebar-width: 240px;               /* live-updated by Sidebar.jsx; 0 on mobile (drawer) */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 14px 34px rgba(15, 23, 42, 0.09);
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-gradient: linear-gradient(135deg, #1d4ed8, #3b82f6);
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --bg-primary: #030712;
+  --bg-secondary: #111827;
+  --bg-card: #111827;
+  --bg-card-rgb: 17, 24, 39; /* rgb triplet of --bg-card, for alpha gradients (scroll fades) */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --header-bg: linear-gradient(135deg, #030712 0%, #0f172a 50%, #1e3a5f 100%);
+  --sidebar-bg: #0b0f19;
+  --sidebar-shadow: 2px 0 20px rgba(0,0,0,0.5);
+  --nav-hover: #1e293b;
+  --input-bg: #0f172a;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.35);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+  --accent: #60a5fa;
+  --accent-strong: #3b82f6;
+  --accent-gradient: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+/* On mobile the sidebar becomes an overlay drawer, so page content is full-width.
+   This is the pre-JS default; Sidebar.jsx keeps --sidebar-width in sync at runtime. */
+@media (max-width: 768px) {
+  :root { --sidebar-width: 0px; }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e3c72;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+/* ---- Modern base (redesign) ---- */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { overflow-x: hidden; }
+
+/* Visible, accessible focus ring using the accent */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button, a { -webkit-tap-highlight-color: transparent; }
+
+/* Smooth theme + color transitions on surfaces */
+@media (prefers-reduced-motion: no-preference) {
+  a, button { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease; }
+}
+
+/* Premium UI Enhancements */
+@keyframes float1 {
+  0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  50% { transform: translateY(-20px) rotate(10deg) scale(1.05); }
+}
+
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  50% { transform: translateY(15px) rotate(-8deg) scale(0.95); }
+}
+
+.glow-bubble-1 {
+  position: absolute;
+  width: 450px;
+  height: 450px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,0.3) 0%, rgba(99,102,241,0.05) 70%, transparent 100%);
+  filter: blur(40px);
+  animation: float1 12s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-bubble-2 {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236,72,153,0.2) 0%, rgba(139,92,246,0.05) 70%, transparent 100%);
+  filter: blur(35px);
+  animation: float2 10s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass-card {
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.dot-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--border-color) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+/* Modern Gradient Text & Glows */
+.text-gradient {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-amber {
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-border-card {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: 1.25rem;
+  z-index: 1;
+}
+
+.gradient-border-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 1.3rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(147, 51, 234, 0.1), rgba(236, 72, 153, 0.3));
+  z-index: -1;
+  transition: opacity 0.4s ease;
+  opacity: 0.7;
+}
+
+.gradient-border-card:hover::before {
+  opacity: 1;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(147, 51, 234, 0.5), rgba(236, 72, 153, 0.7));
+}
+
+.glass-nav {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(var(--bg-card-rgb), 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .glass-nav {
+  background: rgba(17, 24, 39, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 70%
+  );
+  transform: rotate(30deg) translateX(-100%);
+  transition: transform 0.75s ease;
+}
+
+.shimmer-btn:hover::after {
+  transform: rotate(30deg) translateX(100%);
+}
+
+.badge-glow {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.35);
+}
+
+/* Motion.io UI Component Utilities */
+.motion-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="dark"] .motion-card {
+  background: rgba(31, 41, 55, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.motion-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.motion-mesh-header {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #090d16 0%, #131b2e 40%, #1e1b4b 75%, #312e81 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .motion-mesh-header {
+  background: linear-gradient(135deg, #020617 0%, #090d16 50%, #171c2f 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.motion-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.motion-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}

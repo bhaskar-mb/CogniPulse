@@ -1,0 +1,32 @@
+# systemd unit for the faster-whisper transcription service.
+# ONE-TIME SERVER SETUP (as root), so `deploy.yml` can restart it on each deploy:
+#
+#   1) install python deps:
+#        pip3 install -r /var/samagama/cognipulse-workspace/cognipulse/backend/requirements.txt
+#   2) install this unit (adjust User= to the account that runs cognipulse-backend):
+#        sudo cp /var/samagama/cognipulse-workspace/cognipulse/backend/cognipulse-transcription.service \
+#                /etc/systemd/system/cognipulse-transcription.service
+#        sudo systemctl daemon-reload
+#        sudo systemctl enable --now cognipulse-transcription.service
+#   3) verify:  curl -s http://127.0.0.1:3003/health
+#
+[Unit]
+Description=CogniPulse Faster-Whisper Transcription Service
+After=network.target
+
+[Service]
+Type=simple
+# Match the user/group that runs cognipulse-backend.service:
+User=cognipulse-deploy
+WorkingDirectory=/var/samagama/cognipulse-workspace/cognipulse/backend
+ExecStart=/usr/bin/python3 /var/samagama/cognipulse-workspace/cognipulse/backend/transcription_server.py
+Restart=always
+RestartSec=3
+# Optional overrides (defaults shown):
+# Environment=TRANSCRIPTION_PORT=3003
+# Environment=TRANSCRIPTION_MODEL=base
+# Environment=TRANSCRIPTION_DEVICE=cpu
+# Environment=TRANSCRIPTION_COMPUTE=int8
+
+[Install]
+WantedBy=multi-user.target
