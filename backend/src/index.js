@@ -381,6 +381,21 @@ app.use('/api/responses/leaderboard/', leaderboardLimiter)  // leaderboard route
 // Apply timeout middleware before routes
 app.use(requestTimeout)
 
+// Database connection check middleware for API routes
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api') && req.path !== '/api/health') {
+    if (mongoose.connection.readyState !== 1) {
+      await ensureDbConnected()
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+          error: 'Database connection unavailable. Please check that MONGODB_URI is set in your deployment environment variables and MongoDB Atlas allows connections (Network Access: 0.0.0.0/0).'
+        })
+      }
+    }
+  }
+  next()
+})
+
 // API Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/rooms', roomRoutes)
@@ -794,34 +809,36 @@ app.use((req, res) => {
 })
 
 // MongoDB connection
-const connectDB = async () => {
+let isConnecting = false
+export const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) return
+  if (isConnecting) return
+
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/cognipulse'
+  if (!process.env.MONGODB_URI) {
+    console.warn('[MongoDB] WARNING: MONGODB_URI environment variable is unset! Falling back to localhost:27017')
+  }
+
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/cognipulse'
-    
+    isConnecting = true
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      // Ceiling on concurrent in-flight queries. Default is 100; a live event with
-      // hundreds of students bursting responses/leaderboard reads can exhaust it and
-      // queue requests until they time out. Size to the Mongo server's capacity.
       maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE) || 200,
       minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE) || 10
     })
-    
+
     console.log('MongoDB connected successfully')
   } catch (error) {
     console.error('MongoDB connection error:', error.message)
-    console.log('Server will continue without database connection')
+  } finally {
+    isConnecting = false
   }
 }
 
-let dbPromise = null
 export const ensureDbConnected = async () => {
   if (mongoose.connection.readyState === 1) return
-  if (!dbPromise) {
-    dbPromise = connectDB()
-  }
-  await dbPromise
+  await connectDB()
 }
 
 // Start server (only in non-serverless environment)

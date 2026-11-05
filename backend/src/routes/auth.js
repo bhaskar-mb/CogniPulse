@@ -94,6 +94,11 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       token
     })
   } catch (error) {
+    if (error.name === 'MongooseError' || error.message.includes('buffering timed out')) {
+      return res.status(503).json({
+        error: 'Database connection timed out. Please check that MONGODB_URI is set in your deployment environment variables and MongoDB Atlas allows connections (Network Access: 0.0.0.0/0).'
+      })
+    }
     res.status(401).json({ error: error.message })
   }
 })
