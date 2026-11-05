@@ -3,6 +3,10 @@ import { app, ensureDbConnected } from '../backend/src/index.js'
 export default async function handler(req, res) {
   try {
     await ensureDbConnected()
+  } catch (dbErr) {
+    console.error('Vercel DB connection error:', dbErr.message)
+  }
+  try {
     return app(req, res)
   } catch (err) {
     console.error('Vercel Handler Error:', err)

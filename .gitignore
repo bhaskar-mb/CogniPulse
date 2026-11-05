@@ -31,3 +31,5 @@ coverage/
 .cache/
 # Research plans (local only - stored at /home/cognipulse/RESEARCH_PLAN.md)
 .vercel
+
+.vercel

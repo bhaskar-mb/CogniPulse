@@ -815,10 +815,8 @@ export const connectDB = async () => {
   if (mongoose.connection.readyState === 1) return
   if (isConnecting) return
 
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/cognipulse'
-  if (!process.env.MONGODB_URI) {
-    console.warn('[MongoDB] WARNING: MONGODB_URI environment variable is unset! Falling back to localhost:27017')
-  }
+  const DEFAULT_MONGO_URI = 'mongodb+srv://bm7728025_db_user:69NIWzsGo7ra5Ba0@cluster0.zsq1agm.mongodb.net/cognipulse?retryWrites=true&w=majority'
+  const mongoUri = process.env.MONGODB_URI || DEFAULT_MONGO_URI
 
   try {
     isConnecting = true
