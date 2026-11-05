@@ -7,6 +7,7 @@ import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -362,7 +363,10 @@ const otpLimiter = rateLimit({
 })
 
 // Middleware
-app.use(helmet())
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}))
 app.use(cors({
   origin: checkOrigin,
   credentials: true
@@ -774,7 +778,17 @@ app.use((err, req, res, next) => {
   })
 })
 
-// 404 handler
+// Serve frontend static build in production (single-service deployment on Render / Railway)
+const frontendDist = path.resolve(__dirname, '../../frontend/dist')
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist))
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next()
+    res.sendFile(path.join(frontendDist, 'index.html'))
+  })
+}
+
+// 404 handler for unmatched API routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' })
 })
