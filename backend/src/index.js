@@ -386,7 +386,13 @@ app.use(requestTimeout)
 app.use(async (req, res, next) => {
   if (req.path.startsWith('/api') && req.path !== '/api/health') {
     if (mongoose.connection.readyState !== 1) {
-      await ensureDbConnected()
+      try {
+        await ensureDbConnected()
+      } catch (err) {
+        return res.status(503).json({
+          error: 'Database connection unavailable. Please check that MONGODB_URI is set in your deployment environment variables and MongoDB Atlas allows connections (Network Access: 0.0.0.0/0).'
+        })
+      }
       if (mongoose.connection.readyState !== 1) {
         return res.status(503).json({
           error: 'Database connection unavailable. Please check that MONGODB_URI is set in your deployment environment variables and MongoDB Atlas allows connections (Network Access: 0.0.0.0/0).'
@@ -412,7 +418,10 @@ app.use('/api/rag', ragRoutes)
 app.use('/api/feedback', feedbackRoutes)
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    try { await ensureDbConnected() } catch (e) {}
+  }
   res.json({ 
     status: 'ok', 
     version: '0.5.0',
@@ -810,29 +819,29 @@ app.use((req, res) => {
 })
 
 // MongoDB connection
-let isConnecting = false
+let connectionPromise = null
 export const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) return
-  if (isConnecting) return
+  if (mongoose.connection.readyState === 1) return mongoose.connection
+  if (connectionPromise) return connectionPromise
 
   const DEFAULT_MONGO_URI = 'mongodb+srv://bm7728025_db_user:69NIWzsGo7ra5Ba0@cluster0.zsq1agm.mongodb.net/cognipulse?retryWrites=true&w=majority'
   const mongoUri = process.env.MONGODB_URI || DEFAULT_MONGO_URI
 
-  try {
-    isConnecting = true
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE) || 200,
-      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE) || 10
-    })
-
+  connectionPromise = mongoose.connect(mongoUri, {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE) || 50,
+    minPoolSize: 1
+  }).then((conn) => {
     console.log('MongoDB connected successfully')
-  } catch (error) {
+    return conn
+  }).catch((error) => {
     console.error('MongoDB connection error:', error.message)
-  } finally {
-    isConnecting = false
-  }
+    connectionPromise = null
+    throw error
+  })
+
+  return connectionPromise
 }
 
 export const ensureDbConnected = async () => {
