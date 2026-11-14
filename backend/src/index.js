@@ -430,6 +430,29 @@ app.get('/api/health', async (req, res) => {
   })
 })
 
+// Internal email relay endpoint (enables cloud containers like Render to relay email over HTTPS)
+app.post('/api/internal/send-email', async (req, res) => {
+  const { to, subject, html } = req.body || {}
+  if (!to || !subject || !html) {
+    return res.status(400).json({ error: 'Missing required fields: to, subject, html' })
+  }
+  try {
+    const { getTransporter, getFromAddress } = await import('./services/emailService.js')
+    const transporter = getTransporter()
+    await transporter.sendMail({
+      from: getFromAddress(),
+      to,
+      subject,
+      html
+    })
+    console.log(`[Email Relay] Delivered successfully to ${to}`)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error(`[Email Relay Error]:`, err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Public platform stats — no auth required (landing page)
 app.get('/api/stats', async (req, res) => {
   try {

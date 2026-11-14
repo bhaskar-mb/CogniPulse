@@ -12,15 +12,17 @@ import nodemailer from 'nodemailer'
 const FROM_NAME = 'CogniPulse'
 
 // Helper to construct a valid sender address string
-const getFromAddress = () => {
+export const getFromAddress = () => {
   const email = config.mailFrom || config.smtpEmail || 'marellabhaskar62@gmail.com'
   return `"${FROM_NAME}" <${email}>`
 }
 
 // Gmail SMTP transport (used when EMAIL_PROVIDER=smtp or as fallback).
-const getTransporter = () => {
+export const getTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
       user: config.smtpEmail,
       pass: config.smtpPassword
@@ -100,8 +102,16 @@ async function sendEmail(mailOptions) {
       if (!config.smtpEmail || !config.smtpPassword) {
         throw new Error('SMTP credentials missing (SMTP_EMAIL or SMTP_PASSWORD not set in backend/.env)')
       }
-      const t = getTransporter()
-      return await t.sendMail(mailOptions)
+      try {
+        const t = getTransporter()
+        return await t.sendMail(mailOptions)
+      } catch (smtpErr) {
+        if (process.env.EMAIL_WEBHOOK_URL) {
+          console.warn(`[SMTP failed: ${smtpErr.message}]. Retrying delivery via EMAIL_WEBHOOK_URL...`)
+          return await HTTP_PROVIDERS.webhook({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+        }
+        throw smtpErr
+      }
     }
 
     if (!config.emailApiKey) {
