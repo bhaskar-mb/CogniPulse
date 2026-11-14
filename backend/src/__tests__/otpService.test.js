@@ -1,6 +1,6 @@
 // Unit tests for the email-OTP registration mechanics (pure logic, mirroring the constants + hashing
 // used by otpService.js). Full route/DB behaviour is covered by a live integration smoke test.
-const crypto = require('crypto')
+import crypto from 'crypto'
 
 // Mirrors otpService.js
 const genOtp = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0')
