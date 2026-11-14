@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel-schema.json",
+  "framework": "vite",
   "installCommand": "npm install",
-  "buildCommand": "VITE_BASE_PATH= npm run build",
+  "buildCommand": "VITE_BASE_PATH= npm run build && node -e \"import('fs').then(fs => fs.copyFileSync('server.js', 'frontend/dist/server.js'))\"",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.js": {
