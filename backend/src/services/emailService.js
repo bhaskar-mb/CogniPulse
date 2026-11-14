@@ -13,18 +13,23 @@ const FROM_NAME = 'CogniPulse'
 
 // Helper to construct a valid sender address string
 const getFromAddress = () => {
-  const email = config.mailFrom || config.smtpEmail || 'onboarding@resend.dev'
+  const email = config.mailFrom || config.smtpEmail || 'marellabhaskar62@gmail.com'
   return `"${FROM_NAME}" <${email}>`
 }
 
 // Gmail SMTP transport (used when EMAIL_PROVIDER=smtp or as fallback).
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: config.smtpEmail,
-    pass: config.smtpPassword
-  }
-})
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: config.smtpEmail,
+      pass: config.smtpPassword
+    },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000
+  })
+}
 
 // Generic HTTP POST-JSON send with a 10s abort. Shared by every HTTP provider below.
 async function httpSend(url, authHeaders, body, label) {
@@ -85,13 +90,15 @@ async function sendEmail(mailOptions) {
       if (!config.smtpEmail || !config.smtpPassword) {
         throw new Error('SMTP credentials missing (SMTP_EMAIL or SMTP_PASSWORD not set in backend/.env)')
       }
-      return await transporter.sendMail(mailOptions)
+      const t = getTransporter()
+      return await t.sendMail(mailOptions)
     }
 
     if (!config.emailApiKey) {
       if (config.smtpEmail && config.smtpPassword) {
         console.warn(`[EMAIL NOTICE] EMAIL_API_KEY missing for provider '${provider}'. Falling back to SMTP.`)
-        return await transporter.sendMail(mailOptions)
+        const t = getTransporter()
+        return await t.sendMail(mailOptions)
       }
       throw new Error(`EMAIL_API_KEY not configured in backend/.env for provider '${provider}'`)
     }

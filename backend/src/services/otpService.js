@@ -40,15 +40,21 @@ export async function requestRegistrationOtp(email, name) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   )
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`\n==================================================`)
-    console.log(`🔑 [DEV VERIFICATION CODE] Email: ${e} | Code: ${otp}`)
-    console.log(`==================================================\n`)
+  console.log(`🔑 [VERIFICATION CODE] Email: ${e} | Code: ${otp}`)
+
+  let emailDelivered = false
+  try {
+    await sendRegistrationOtp(e, name, otp)
+    emailDelivered = true
+  } catch (err) {
+    console.warn(`[OTP] Email delivery failed for ${e}: ${err.message}. Providing code fallback.`)
   }
-  await sendRegistrationOtp(e, name, otp) // throws if the email fails → route returns 500
+
+  const shouldExposeOtp = !emailDelivered || process.env.NODE_ENV !== 'production'
   return { 
     expiresInSec: Math.round(OTP_TTL_MS / 1000),
-    devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+    devOtp: shouldExposeOtp ? otp : undefined,
+    emailDelivered
   }
 }
 

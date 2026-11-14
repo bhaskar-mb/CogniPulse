@@ -126,10 +126,15 @@ function AuthPage() {
         const resData = await sendRegistrationOtp(formData.name, formData.email)
         if (resData?.devOtp) {
           setDevOtp(resData.devOtp)
+          if (resData.emailDelivered === false) {
+            setOtpValue(resData.devOtp)
+          } else {
+            setOtpValue('')
+          }
         } else {
           setDevOtp('')
+          setOtpValue('')
         }
-        setOtpValue('')
         setOtpSent(true)
         setResendIn(resData?.expiresInSec ? 60 : 60)
       } catch (err) {
@@ -444,6 +449,39 @@ function AuthPage() {
                 We sent a 6-digit verification code to<br />
                 <strong style={{ color: isDark ? '#f8fafc' : '#1e293b' }}>{formData.email}</strong>
               </p>
+              {devOtp && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}>
+                  <span style={{ fontSize: '13px', color: isDark ? '#c7d2fe' : '#3730a3', fontWeight: '600' }}>
+                    Code: <strong style={{ letterSpacing: '2px', fontSize: '15px' }}>{devOtp}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOtpValue(devOtp)}
+                    style={{
+                      background: '#6366f1',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '24px' }}>
