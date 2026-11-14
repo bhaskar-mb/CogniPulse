@@ -477,7 +477,7 @@ app.get('/api/stats', async (req, res) => {
 // Socket.IO connection handling
 const connectedUsers = new Map() // socket.id -> userId
 
-const SOCKET_JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const SOCKET_JWT_SECRET = process.env.JWT_SECRET || 'cognipulse-dev-secret-key-change-in-prod-2024'
 
 // Phase 2B — resolve identity for a socket from a JWT and attach it to socket.data, so every
 // handler trusts SERVER-derived identity (userId/role) instead of client-supplied fields.
