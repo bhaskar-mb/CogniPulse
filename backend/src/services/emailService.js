@@ -77,7 +77,7 @@ const HTTP_PROVIDERS = {
     'SendGrid'
   ),
   webhook: ({ to, subject, html }) => httpSend(
-    process.env.EMAIL_WEBHOOK_URL || 'https://spandan-lovat.vercel.app/api/send-email',
+    process.env.EMAIL_WEBHOOK_URL || 'https://project1-ochre-eta-97.vercel.app/api/send-email',
     {},
     { to, subject, html, from: getFromAddress() },
     'Email Webhook'
