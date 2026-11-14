@@ -24,14 +24,10 @@ router.post('/register/send-otp', validate(sendOtpSchema), async (req, res) => {
     if (await checkEmailExists(email)) {
       return res.status(400).json({ error: 'Email already registered' })
     }
-    const { expiresInSec, devOtp, emailDelivered } = await requestRegistrationOtp(email, name)
+    const { expiresInSec } = await requestRegistrationOtp(email, name)
     res.json({
-      message: emailDelivered !== false
-        ? 'Verification code sent to your email'
-        : 'Verification code generated! (Email delivery unavailable; code provided)',
-      expiresInSec,
-      ...(devOtp ? { devOtp } : {}),
-      emailDelivered
+      message: 'Verification code sent to your email',
+      expiresInSec
     })
   } catch (error) {
     console.error('[send-otp Error]', error)

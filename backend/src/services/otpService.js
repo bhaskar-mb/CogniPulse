@@ -42,19 +42,11 @@ export async function requestRegistrationOtp(email, name) {
   )
   console.log(`🔑 [VERIFICATION CODE] Email: ${e} | Code: ${otp}`)
 
-  let emailDelivered = false
-  try {
-    await sendRegistrationOtp(e, name, otp)
-    emailDelivered = true
-  } catch (err) {
-    console.warn(`[OTP] Email delivery failed for ${e}: ${err.message}. Providing code fallback.`)
-  }
+  await sendRegistrationOtp(e, name, otp)
 
-  const shouldExposeOtp = !emailDelivered || process.env.NODE_ENV !== 'production'
   return { 
     expiresInSec: Math.round(OTP_TTL_MS / 1000),
-    devOtp: shouldExposeOtp ? otp : undefined,
-    emailDelivered
+    emailDelivered: true
   }
 }
 

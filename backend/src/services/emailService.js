@@ -33,7 +33,7 @@ const getTransporter = () => {
 
 // Generic HTTP POST-JSON send with a 10s abort. Shared by every HTTP provider below.
 async function httpSend(url, authHeaders, body, label) {
-  if (!config.emailApiKey) throw new Error('EMAIL_API_KEY not configured')
+  if (!url) throw new Error(`${label} URL not configured`)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
   try {
@@ -73,12 +73,18 @@ const HTTP_PROVIDERS = {
     { Authorization: `Bearer ${config.emailApiKey}` },
     { personalizations: [{ to: [{ email: to }] }], from: { email: config.mailFrom || config.smtpEmail || 'noreply@cognipulse.fun', name: FROM_NAME }, subject, content: [{ type: 'text/html', value: html }] },
     'SendGrid'
+  ),
+  webhook: ({ to, subject, html }) => httpSend(
+    process.env.EMAIL_WEBHOOK_URL,
+    {},
+    { to, subject, html, from: getFromAddress() },
+    'Email Webhook'
   )
 }
 
 // Unified sender — dispatches to the provider selected by EMAIL_PROVIDER.
 async function sendEmail(mailOptions) {
-  const provider = config.emailProvider || 'smtp'
+  const provider = (process.env.EMAIL_WEBHOOK_URL ? 'webhook' : (config.emailProvider || 'smtp')).toLowerCase()
 
   // Ensure mailOptions.from is populated with a valid email
   if (!mailOptions.from || mailOptions.from.includes('<>')) {
@@ -86,6 +92,10 @@ async function sendEmail(mailOptions) {
   }
 
   try {
+    if (provider === 'webhook') {
+      const send = HTTP_PROVIDERS.webhook
+      return await send({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+    }
     if (provider === 'smtp') {
       if (!config.smtpEmail || !config.smtpPassword) {
         throw new Error('SMTP credentials missing (SMTP_EMAIL or SMTP_PASSWORD not set in backend/.env)')
