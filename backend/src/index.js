@@ -430,6 +430,30 @@ app.get('/api/health', async (req, res) => {
   })
 })
 
+// Diagnostic email test endpoint
+app.get('/api/test-email', async (req, res) => {
+  const to = req.query.to || 'marellabhaskar62@gmail.com'
+  const startTime = Date.now()
+  try {
+    const { sendRegistrationOtp } = await import('./services/emailService.js')
+    await sendRegistrationOtp(to, 'Diagnostics', '123456')
+    res.json({
+      ok: true,
+      durationMs: Date.now() - startTime,
+      sentTo: to,
+      provider: process.env.EMAIL_PROVIDER || 'smtp'
+    })
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      durationMs: Date.now() - startTime,
+      error: err.message,
+      code: err.code,
+      stack: err.stack
+    })
+  }
+})
+
 // Public platform stats — no auth required (landing page)
 app.get('/api/stats', async (req, res) => {
   try {
