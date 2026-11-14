@@ -873,7 +873,8 @@ export const ensureDbConnected = async () => {
 }
 
 // Start server (only in non-serverless environment)
-if (process.env.VERCEL !== '1') {
+const isServerless = Boolean(process.env.VERCEL) || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || Boolean(process.env.LAMBDA_TASK_ROOT)
+if (!isServerless) {
   const PORT = process.env.PORT || 3001
   const startServer = async () => {
     await connectDB()

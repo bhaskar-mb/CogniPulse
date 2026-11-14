@@ -10,12 +10,17 @@ export default async function handler(req, res) {
   } catch (dbErr) {
     console.error('Vercel DB connection error:', dbErr.message)
   }
-  try {
-    return app(req, res)
-  } catch (err) {
-    console.error('Vercel Handler Error:', err)
-    if (!res.headersSent) {
-      return res.status(500).json({ error: 'Internal Server Error', message: err.message })
+  return new Promise((resolve) => {
+    res.on('finish', resolve)
+    res.on('close', resolve)
+    try {
+      app(req, res)
+    } catch (err) {
+      console.error('Vercel Handler Error:', err)
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error', message: err.message })
+      }
+      resolve()
     }
-  }
+  })
 }
