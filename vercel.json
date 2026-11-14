@@ -6,9 +6,16 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60
+    },
+    "api/send-email.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
+    {
+      "source": "/api/send-email",
+      "destination": "/api/send-email.js"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api"

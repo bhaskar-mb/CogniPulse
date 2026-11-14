@@ -27,9 +27,9 @@ export const getTransporter = () => {
       user: config.smtpEmail,
       pass: config.smtpPassword
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000
+    connectionTimeout: 4000,
+    greetingTimeout: 4000,
+    socketTimeout: 6000
   })
 }
 
@@ -77,7 +77,7 @@ const HTTP_PROVIDERS = {
     'SendGrid'
   ),
   webhook: ({ to, subject, html }) => httpSend(
-    process.env.EMAIL_WEBHOOK_URL,
+    process.env.EMAIL_WEBHOOK_URL || 'https://spandan-lovat.vercel.app/api/send-email',
     {},
     { to, subject, html, from: getFromAddress() },
     'Email Webhook'
@@ -106,11 +106,13 @@ async function sendEmail(mailOptions) {
         const t = getTransporter()
         return await t.sendMail(mailOptions)
       } catch (smtpErr) {
-        if (process.env.EMAIL_WEBHOOK_URL) {
-          console.warn(`[SMTP failed: ${smtpErr.message}]. Retrying delivery via EMAIL_WEBHOOK_URL...`)
+        console.warn(`[SMTP failed: ${smtpErr.message}]. Retrying delivery via HTTPS relay...`)
+        try {
           return await HTTP_PROVIDERS.webhook({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+        } catch (relayErr) {
+          console.error(`[HTTPS relay also failed: ${relayErr.message}]`)
+          throw smtpErr
         }
-        throw smtpErr
       }
     }
 
