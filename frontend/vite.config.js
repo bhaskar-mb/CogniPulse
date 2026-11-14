@@ -40,7 +40,15 @@ export default defineConfig(({ mode }) => {
     base,
     build: {
       outDir: 'dist',
-      emptyOutDir: true
+      emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-icons': ['lucide-react']
+          }
+        }
+      }
     },
     server: {
       host: true,

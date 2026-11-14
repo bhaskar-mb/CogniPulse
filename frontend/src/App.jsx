@@ -1,27 +1,57 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import useThemeStore from './stores/themeStore'
 import useAuthStore from './stores/authStore'
 import useSocketStore from './stores/socketStore'
 import ProtectedRoute from './components/ProtectedRoute'
-import LandingPage from './pages/LandingPage'
-import AuthPage from './pages/AuthPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import DashboardPage from './pages/DashboardPage'
-import StudentDashboard from './pages/StudentDashboard'
-import RoomDetailPage from './pages/RoomDetailPage'
-import StudentRoomPage from './pages/StudentRoomPage'
-import CreateRoomPage from './pages/CreateRoomPage'
-import ManageRoomPage from './pages/ManageRoomPage'
-import JoinRoomPage from './pages/JoinRoomPage'
-import RoomHistoryPage from './pages/RoomHistoryPage'
-import RoomResultsPage from './pages/RoomResultsPage'
-import ProfilePage from './pages/ProfilePage'
-import AnalyticsDashboard from './pages/AnalyticsDashboard'
-import HelpPage from './pages/HelpPage'
-import AdminPage from './pages/AdminPage'
+import ErrorBoundary from './components/ErrorBoundary'
 import { API_URL, BASE_PATH } from './config.js'
 import { isTokenExpired } from './lib/jwt.js'
+
+// Lazy load route pages for high-speed initial paint
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const AuthPage = lazy(() => import('./pages/AuthPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'))
+const RoomDetailPage = lazy(() => import('./pages/RoomDetailPage'))
+const StudentRoomPage = lazy(() => import('./pages/StudentRoomPage'))
+const CreateRoomPage = lazy(() => import('./pages/CreateRoomPage'))
+const ManageRoomPage = lazy(() => import('./pages/ManageRoomPage'))
+const JoinRoomPage = lazy(() => import('./pages/JoinRoomPage'))
+const RoomHistoryPage = lazy(() => import('./pages/RoomHistoryPage'))
+const RoomResultsPage = lazy(() => import('./pages/RoomResultsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'))
+const HelpPage = lazy(() => import('./pages/HelpPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+
+function PageLoader() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--bg-main, #f8fafc)',
+      fontFamily: 'Outfit, system-ui, sans-serif'
+    }}>
+      <div style={{
+        width: '42px',
+        height: '42px',
+        borderRadius: '50%',
+        border: '3px solid rgba(99, 102, 241, 0.15)',
+        borderTopColor: '#6366f1',
+        animation: 'cpAppSpin 0.8s linear infinite'
+      }} />
+      <style>{`@keyframes cpAppSpin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ marginTop: '16px', fontSize: '14px', fontWeight: '700', color: '#6366f1', letterSpacing: '0.5px' }}>
+        CogniPulse
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const { isDark } = useThemeStore()
@@ -135,106 +165,110 @@ function App() {
   }, [isDark])
 
   return (
-    <BrowserRouter basename={BASE_PATH}>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<AuthPage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/teacher" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <DashboardPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/create-room" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <CreateRoomPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/manage-room" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <ManageRoomPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/profile" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <ProfilePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/room-history" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <RoomHistoryPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/room/:roomId" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <RoomDetailPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/room/:roomId/results" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <RoomResultsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/analytics" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <AnalyticsDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/teacher/help" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <HelpPage />
-          </ProtectedRoute>
-        } />
-        {/* Admin-only: teacher approval page. Guarded to teachers here and to isAdmin inside the page + API. */}
-        <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <AdminPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/join-room" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <JoinRoomPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/help" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <HelpPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/room-history" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <RoomHistoryPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/analytics" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <AnalyticsDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/profile" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <ProfilePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/room/:roomId/results" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <RoomResultsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/student/session/:roomCode" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentRoomPage />
-          </ProtectedRoute>
-        } />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary message="Unable to load page. Please refresh to try again.">
+      <BrowserRouter basename={BASE_PATH}>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/teacher" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/create-room" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <CreateRoomPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/manage-room" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <ManageRoomPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/profile" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/room-history" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <RoomHistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/room/:roomId" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <RoomDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/room/:roomId/results" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <RoomResultsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/analytics" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <AnalyticsDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/help" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <HelpPage />
+              </ProtectedRoute>
+            } />
+            {/* Admin-only: teacher approval page. Guarded to teachers here and to isAdmin inside the page + API. */}
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <AdminPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/join-room" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <JoinRoomPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/help" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <HelpPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/room-history" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoomHistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/analytics" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <AnalyticsDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/profile" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/room/:roomId/results" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoomResultsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/session/:roomCode" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentRoomPage />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 
