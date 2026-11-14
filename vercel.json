@@ -19,11 +19,11 @@
     },
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.js"
     },
     {
       "source": "/cognipulse/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.js"
     },
     {
       "source": "/cognipulse/(.*)",
@@ -31,7 +31,7 @@
     },
     {
       "source": "/spandan/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.js"
     },
     {
       "source": "/spandan/(.*)",
