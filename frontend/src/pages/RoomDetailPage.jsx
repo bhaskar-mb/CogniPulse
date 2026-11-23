@@ -356,6 +356,30 @@ function RoomDetailPage() {
     // Capture transcript
     let textToUse = segmentTranscriptRef.current.trim() || transcript.trim()
 
+    // If transcript is empty/short in video mode, fetch the exact transcript of what the teacher told in this video segment
+    if ((!textToUse || textToUse.length < 15) && isVideoMode && videoId) {
+      console.log('[SEGMENT] Fetching YouTube transcript for current video segment...')
+      try {
+        const segSecs = (roomSettings.segmentTime || 2) * 60
+        const startSecs = Math.max(0, (currentSegment - 1) * segSecs)
+        const res = await fetch(`${API_URL}/transcription/youtube-transcript?videoId=${videoId}&start=${startSecs}&duration=${segSecs}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.text && data.text.length > 20) {
+            textToUse = data.text
+            setTranscript(prev => (prev ? prev + ' ' : '') + data.text)
+            setSegmentTranscript(data.text)
+            segmentTranscriptRef.current = data.text
+            console.log('[SEGMENT] Successfully loaded segment transcript from video speech:', data.text.substring(0, 100))
+          }
+        }
+      } catch (err) {
+        console.warn('[SEGMENT] Failed to fetch YouTube transcript:', err.message)
+      }
+    }
+
     if (!textToUse || textToUse.length < 10) {
       console.log('[SEGMENT] Transcript short or empty; resolving topic fallback')
       let fallbackTopic = ''
@@ -1101,6 +1125,25 @@ function RoomDetailPage() {
 
   const handleManualGenerateQuestions = async () => {
     let textToUse = segmentTranscript.trim() || transcript.trim()
+    if ((!textToUse || textToUse.length < 15) && isVideoMode && videoId) {
+      try {
+        const segSecs = (roomSettings.segmentTime || 2) * 60
+        const startSecs = Math.max(0, (currentSegment - 1) * segSecs)
+        const res = await fetch(`${API_URL}/transcription/youtube-transcript?videoId=${videoId}&start=${startSecs}&duration=${segSecs}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.text && data.text.length > 20) {
+            textToUse = data.text
+            setTranscript(prev => (prev ? prev + ' ' : '') + data.text)
+            setSegmentTranscript(data.text)
+            segmentTranscriptRef.current = data.text
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!textToUse || textToUse.length < 10) {
       if (isVideoMode) {
         const vData = ytPlayerRef.current?.getVideoData?.() || videoInfoRef.current

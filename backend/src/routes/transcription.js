@@ -1,6 +1,7 @@
 import express from 'express'
 import { authenticate, authorize, requireApprovedTeacher } from '../middleware/auth.js'
 import { config } from '../config.js'
+import { YoutubeTranscript } from 'youtube-transcript'
 
 const router = express.Router()
 
@@ -101,6 +102,39 @@ router.get('/youtube-info', authenticate, async (req, res) => {
     res.status(404).json({ error: 'Video info not found' })
   } catch (e) {
     res.status(500).json({ error: e.message })
+  }
+})
+
+// Fetch YouTube video transcript directly from YouTube
+router.get('/youtube-transcript', authenticate, async (req, res) => {
+  const { videoId, start, duration } = req.query
+  if (!videoId) return res.status(400).json({ error: 'videoId is required' })
+
+  try {
+    const items = await YoutubeTranscript.fetchTranscript(videoId)
+    if (!items || items.length === 0) {
+      return res.json({ text: '', items: [] })
+    }
+
+    let selectedItems = items
+    if (start !== undefined && duration !== undefined) {
+      const startMs = Number(start) * 1000
+      const endMs = startMs + (Number(duration) * 1000)
+      const filtered = items.filter(t => {
+        const itemStart = t.offset
+        const itemEnd = t.offset + t.duration
+        return (itemStart >= startMs && itemStart <= endMs) || (itemEnd >= startMs && itemEnd <= endMs)
+      })
+      if (filtered.length > 0) {
+        selectedItems = filtered
+      }
+    }
+
+    const text = selectedItems.map(t => t.text).join(' ')
+    res.json({ text, items: selectedItems })
+  } catch (err) {
+    console.warn(`Could not fetch YouTube transcript for ${videoId}:`, err.message)
+    res.json({ text: '', items: [], error: err.message })
   }
 })
 
