@@ -41,7 +41,7 @@ const roomSchema = new mongoose.Schema({
     segmentTime: { type: Number, default: 2 },
     questionsPerSegment: { type: Number, default: 2 },
     difficulty: { type: String, default: 'medium' },
-    questionProvider: { type: String, default: 'minimax' },
+    questionProvider: { type: String, default: 'google' },
     questionTypeMix: {
       MCQ: { type: Number, default: 50 },
       TF: { type: Number, default: 30 },

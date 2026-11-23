@@ -38,8 +38,8 @@ async function generateGoogleEmbedding(text) {
 
   const truncatedText = text.slice(0, 7000)
 
-  // Try text-embedding-004 or embedding-001
-  const models = ['text-embedding-004', 'embedding-001']
+  // Try gemini-embedding-001, text-embedding-004 or embedding-001
+  const models = ['gemini-embedding-001', 'text-embedding-004', 'embedding-001']
   for (const m of models) {
     try {
       const response = await fetch(

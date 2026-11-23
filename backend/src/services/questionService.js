@@ -221,9 +221,14 @@ function generateFromMix(questionTypeMix, numQuestions) {
 export function cleanTranscriptText(transcript) {
   if (!transcript) return ''
   return transcript
-    .replace(/\b(thank you so much|thank you very much|thank you|thanks for listening|thanks for watching|thanks|thank u)\b/gi, '')
-    .replace(/\b(hello everyone|can you hear me|let's get started|welcome everyone|good morning|good afternoon)\b/gi, '')
+    .replace(/\b(thank you so much|thank you very much|thank you for joining|thanks for joining|thank you|thanks for listening|thanks for watching|thanks|thank u)\b/gi, '')
+    .replace(/\b(welcome to the session|welcome to class|welcome to the class|welcome to the meeting|welcome everyone|welcome back|welcome)\b/gi, '')
+    .replace(/\b(can you hear me|am i audible|can you see my screen|is my screen visible|let me share my screen|turn on your mic|turn on your camera)\b/gi, '')
+    .replace(/\b(hello everyone|let's get started|good morning everyone|good afternoon everyone|good evening everyone|good morning|good afternoon|good evening|hello|hi everyone|hi guys)\b/gi, '')
+    .replace(/\b(today we are going to study|today we are going to learn about|today we are going to discuss|today we will discuss|today we will look at|in this class we will|in this lecture we will|let's discuss|let us discuss|so today's topic is|today's topic is)\b/gi, '')
     .replace(/\b(um|uh|er|ah|you know|like i said|as i said|so basically|basically|okay so|right)\b/gi, '')
+    .replace(/\s*,\s*,+/g, ',')
+    .replace(/^\s*[,.\-;:!?]\s*/, '')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -233,8 +238,8 @@ export function extractPropositions(cleanText) {
   if (!cleanText) return []
   let pieces = cleanText
     .split(/(?<=[.!?])\s+/)
-    .map(p => p.trim())
-    .filter(p => p.length > 8)
+    .map(p => p.replace(/^\s*[,.\-;:!?]\s*/, '').trim())
+    .filter(p => p.length > 10 && !/^(welcome|hello|hi|good morning|good afternoon|good evening|today we|we will)/i.test(p))
 
   const refined = []
   pieces.forEach(p => {
@@ -242,7 +247,7 @@ export function extractPropositions(cleanText) {
     const subClauses = p
       .split(/\s+(?:,\s*and\b|;\s*|\bwhich\s+allows\b|\bwhich\s+enables\b|\bwhich\s+caused\b|\busing\s+features\s+like\b|\bbecause\b|\bwhile\b|\bthey\s+allow\b|\bthis\s+format\b|\bin\s+contrast\b|\bmoreover\b|\bhowever\b|\bwhere\b)/i)
       .map(s => s.trim().replace(/^(and|or|but|also|so|then|with|using|which|that|they|this)\s+/i, ''))
-      .filter(s => s.length > 10)
+      .filter(s => s.length > 12 && !/^(welcome|hello|hi|today we|we are going to)/i.test(s))
 
     if (subClauses.length > 0) {
       refined.push(...subClauses)
@@ -251,7 +256,7 @@ export function extractPropositions(cleanText) {
       if (words.length > 14) {
         for (let i = 0; i < words.length; i += 12) {
           const slice = words.slice(i, i + 12).join(' ').trim()
-          if (slice.length > 8) refined.push(slice)
+          if (slice.length > 10) refined.push(slice)
         }
       } else {
         refined.push(p)
@@ -528,8 +533,16 @@ async function generateWithAnthropic(prompt, model = 'claude-3-5-sonnet-20241022
 }
 
 // Google Gemini API call
-async function generateWithGoogle(prompt, model = 'gemini-2.0-flash') {
-  const modelsToTry = [model, 'gemini-1.5-flash', 'gemini-1.5-pro']
+async function generateWithGoogle(prompt, model = 'gemini-flash-lite-latest') {
+  const modelsToTry = [
+    model,
+    'gemini-flash-lite-latest',
+    'gemini-flash-latest',
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-2.5-flash-lite'
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i)
+
   for (const m of modelsToTry) {
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${config.googleApiKey}`, {
@@ -572,7 +585,7 @@ export function generateFallbackQuestions(transcript, questionTypes) {
   const sentences = extractPropositions(cleanTranscript)
 
   return questionTypes.map((type, idx) => {
-    const targetSentence = sentences[idx % sentences.length] || sentences[0] || 'Online classes facilitate interactive virtual learning.'
+    const targetSentence = sentences[idx % sentences.length] || sentences[0] || 'The session covers the core academic concepts and definitions.'
     const otherSentences = sentences.filter((_, i) => i !== (idx % sentences.length))
     
     // Check if sentence has a definition or action structure
@@ -591,11 +604,17 @@ export function generateFallbackQuestions(transcript, questionTypes) {
       predicate = words.slice(3).join(' ') || targetSentence
     }
 
-    // Capitalize and clean subject
+    // Strip conversational prefixes and fillers from subject
     subject = (subject || 'The discussed concept')
+      .replace(/^(today we are going to learn about|today we will discuss|today we will look at|in this class we will|in this lecture we|today we are|today we|we will|we are|now we|let us|let's|i will|i am|in this class|in this lecture|as we discussed|so|now|and|or|but|also|then|with|using|which|that|they|this)\s+/i, '')
       .replace(/^[^a-zA-Z0-9]+/, '')
-      .replace(/^(and|or|but|also|so|then|with|using|which|that|they|this)\s+/i, '')
       .trim()
+
+    if (!subject || subject.length < 3 || /^(we|i|you|they|he|she|it|this|that|these|those)$/i.test(subject)) {
+      const meaningfulWords = targetSentence.split(/\s+/).filter(w => !/^(today|we|are|will|is|the|a|an|in|this|lecture|class|discussing|learning|about|going|to)$/i.test(w))
+      subject = meaningfulWords.slice(0, Math.min(3, meaningfulWords.length)).join(' ') || 'The core topic'
+    }
+
     if (subject) {
       subject = subject.charAt(0).toUpperCase() + subject.slice(1)
     }
@@ -603,6 +622,18 @@ export function generateFallbackQuestions(transcript, questionTypes) {
     // Limit predicate to max 8-10 words
     const predWords = predicate.split(/\s+/).filter(w => w.length > 0)
     const shortPredicate = predWords.slice(0, 8).join(' ').replace(/[.,;:]+$/, '')
+
+    // Extract potential contextual distractors from other sentences in the session
+    const altOptions = otherSentences
+      .map(s => {
+        const rel = /( is | are | was | were | means | refers to | causes | leads to | consists of | creates | prevents | enables | allows | facilitates )/i.exec(s)
+        if (rel) {
+          const pred = s.substring(rel.index + rel[0].length).trim().split(/\s+/).slice(0, 6).join(' ').replace(/[.,;:]+$/, '')
+          return `${rel[0].trim().charAt(0).toUpperCase() + rel[0].trim().slice(1)} ${pred}`
+        }
+        return s.split(/\s+/).slice(0, 6).join(' ').replace(/[.,;:]+$/, '')
+      })
+      .filter(s => s && s.length > 5 && s.toLowerCase() !== shortPredicate.toLowerCase())
 
     if (type === 'TF') {
       const isTrue = idx % 2 === 0
@@ -613,13 +644,13 @@ export function generateFallbackQuestions(transcript, questionTypes) {
           ? `${subject} ${isRelation[0].trim()} ${shortPredicate}.`
           : `${targetSentence.split(/\s+/).slice(0, 12).join(' ').replace(/[.,;:]+$/, '')}.`
       } else {
-        // Create a crisp, clear false proposition
+        // Create a crisp, clear false proposition based on the topic
         if (/\b(increases|accelerates|promotes|allows|enables|facilitates)\b/i.test(targetSentence)) {
-          statement = `${subject} restricts or prevents ${shortPredicate || 'system capabilities'}.`
+          statement = `${subject} restricts or prevents ${shortPredicate || 'this effect'}.`
         } else if (/\b(is|was|are)\b/i.test(targetSentence)) {
-          statement = `${subject} does not provide ${shortPredicate || 'real-time functionality'}.`
+          statement = `${subject} does not represent ${shortPredicate || 'the described concept'}.`
         } else {
-          statement = `${subject} operates without ${shortPredicate || 'interactive communication'}.`
+          statement = `${subject} operates without ${shortPredicate || 'this functionality'}.`
         }
       }
 
@@ -638,9 +669,12 @@ export function generateFallbackQuestions(transcript, questionTypes) {
         createdAt: new Date().toISOString()
       }
     } else if (type === 'MSQ') {
-      const secondIdea = otherSentences[0] 
+      const secondIdea = altOptions[0] || (otherSentences[0] 
         ? otherSentences[0].split(/\s+/).slice(0, 7).join(' ') 
-        : `Supports flexible digital interaction`
+        : `Relates directly to the properties of ${subject}`)
+
+      const incorrect1 = altOptions[1] ? `Inversely limits ${altOptions[1].toLowerCase()}` : `Operates strictly without ${subject}`
+      const incorrect2 = `Inactivates all related mechanisms of ${subject}`
 
       return {
         id: `q_${Date.now()}_${idx}`,
@@ -649,8 +683,8 @@ export function generateFallbackQuestions(transcript, questionTypes) {
         options: [
           { text: `${subject} ${isRelation ? isRelation[0].trim() : 'provides'} ${shortPredicate}`, isCorrect: true },
           { text: secondIdea, isCorrect: true },
-          { text: `Operates strictly without ${subject}`, isCorrect: false },
-          { text: `Restricts all interactive features`, isCorrect: false }
+          { text: incorrect1, isCorrect: false },
+          { text: incorrect2, isCorrect: false }
         ],
         explanation: `Supported directly by the session: "${targetSentence.slice(0, 90)}"`,
         segmentIndex: 0,
@@ -660,15 +694,15 @@ export function generateFallbackQuestions(transcript, questionTypes) {
       // Crisp MCQ
       const questionStem = isRelation 
         ? `What is the primary role of ${subject}?`
-        : `Which feature is associated with ${subject}?`
+        : `Which characteristic is associated with ${subject}?`
 
       const correctOpt = isRelation 
         ? `${isRelation[0].trim().charAt(0).toUpperCase() + isRelation[0].trim().slice(1)} ${shortPredicate}`
         : `${shortPredicate}`
 
-      const distractor1 = `Requires offline physical attendance only`
-      const distractor2 = `Operates without interactive communication`
-      const distractor3 = `Has no connection with ${subject}`
+      const distractor1 = altOptions[0] || `Inversely inhibits ${subject}`
+      const distractor2 = altOptions[1] || `Functions independently of ${subject}`
+      const distractor3 = altOptions[2] || `Has no functional relation to ${subject}`
 
       return {
         id: `q_${Date.now()}_${idx}`,

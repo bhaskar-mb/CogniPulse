@@ -112,7 +112,7 @@ function RoomDetailPage() {
     segmentTime: 2,
     questionsPerSegment: 2,
     difficulty: 'medium',
-    questionProvider: 'minimax',
+    questionProvider: 'google',
     questionTypeMix: { MCQ: 0, TF: 100, MSQ: 0 },
     timeToAnswer: 30,
     points: 100
@@ -404,7 +404,7 @@ function RoomDetailPage() {
       const data = await requestQuestionGeneration(text, {
         numQuestions: roomSettings.questionsPerSegment,
         difficulty: roomSettings.difficulty,
-        provider: roomSettings.questionProvider || 'minimax',
+        provider: roomSettings.questionProvider || 'google',
         questionTypeMix: roomSettings.questionTypeMix || { MCQ: 0, TF: 100, MSQ: 0 }
       }, { signal: genAbortRef.current.signal })
 
@@ -440,7 +440,7 @@ function RoomDetailPage() {
       const data = await requestQuestionGeneration(text, {
         numQuestions: roomSettings.questionsPerSegment,
         difficulty: roomSettings.difficulty,
-        provider: roomSettings.questionProvider || 'minimax',
+        provider: roomSettings.questionProvider || 'google',
         questionTypeMix: typeMix
       }, { signal: genAbortRef.current.signal })
 
