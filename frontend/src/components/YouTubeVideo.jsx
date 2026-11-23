@@ -45,6 +45,7 @@ const YouTubeVideo = ({
   onPause,
   onEnd,
   onLiveStatus,
+  onVideoInfo,
   playerRef
 }) => {
   const mountRef = useRef(null)
@@ -54,7 +55,7 @@ const YouTubeVideo = ({
   // Keep the latest callbacks in a ref and always invoke through it.
   const cbRef = useRef({})
   useEffect(() => {
-    cbRef.current = { onReady, onPlay, onPause, onEnd }
+    cbRef.current = { onReady, onPlay, onPause, onEnd, onVideoInfo }
   })
 
   useEffect(() => {
@@ -75,10 +76,20 @@ const YouTubeVideo = ({
         events: {
           onReady: (e) => {
             if (playerRef) playerRef.current = e.target
+            try {
+              const data = e.target.getVideoData ? e.target.getVideoData() : null
+              if (data && data.title && cbRef.current.onVideoInfo) cbRef.current.onVideoInfo(data)
+            } catch (_) {}
             cbRef.current.onReady && cbRef.current.onReady(e.target)
           },
           onStateChange: (e) => {
-            if (e.data === YT.PlayerState.PLAYING) cbRef.current.onPlay && cbRef.current.onPlay(e.target)
+            if (e.data === YT.PlayerState.PLAYING) {
+              try {
+                const data = e.target.getVideoData ? e.target.getVideoData() : null
+                if (data && data.title && cbRef.current.onVideoInfo) cbRef.current.onVideoInfo(data)
+              } catch (_) {}
+              cbRef.current.onPlay && cbRef.current.onPlay(e.target)
+            }
             else if (e.data === YT.PlayerState.PAUSED) cbRef.current.onPause && cbRef.current.onPause(e.target)
             else if (e.data === YT.PlayerState.ENDED) cbRef.current.onEnd && cbRef.current.onEnd(e.target)
           }

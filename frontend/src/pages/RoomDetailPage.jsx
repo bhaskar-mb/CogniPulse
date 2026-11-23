@@ -357,8 +357,24 @@ function RoomDetailPage() {
     let textToUse = segmentTranscriptRef.current.trim() || transcript.trim()
 
     if (!textToUse || textToUse.length < 10) {
-      console.log('[SEGMENT] Transcript short or empty; using room topic/name fallback for generation')
-      textToUse = room?.name || roomSettings?.topic || 'General Lecture Topics and Concepts'
+      console.log('[SEGMENT] Transcript short or empty; resolving topic fallback')
+      let fallbackTopic = ''
+      if (isVideoMode) {
+        const vData = ytPlayerRef.current?.getVideoData?.() || videoInfoRef.current
+        const vTitle = vData?.title || ''
+        const vAuthor = vData?.author || ''
+        if (vTitle) {
+          fallbackTopic = `${vTitle}${vAuthor ? ' by ' + vAuthor : ''}`
+        }
+      }
+
+      // Check if room name is a placeholder (e.g. Test, Test123, Room 1)
+      const isPlaceholder = (name) => !name || /^(test|room|demo|temp|sample|abc|xyz)[0-9_\s-]*$/i.test(name.trim())
+
+      textToUse = fallbackTopic
+        || roomSettings?.topic
+        || (!isPlaceholder(room?.name) ? room.name : '')
+        || (isVideoMode ? 'Python programming tutorial and core coding concepts' : 'General Lecture Topics and Concepts')
     }
 
     // Auto-generate questions FIRST. The transcript save is intentionally NOT done before this and
@@ -846,8 +862,29 @@ function RoomDetailPage() {
   const videoId = isVideoMode ? extractYouTubeId(roomSettings.videoUrl) : null
   const videoIsLiveHint = /\/live\//.test(roomSettings.videoUrl || '')
   const ytPlayerRef = useRef(null)
+  const videoInfoRef = useRef({ title: '', author: '' })
   const [videoSessionActive, setVideoSessionActive] = useState(false)
   const [isLiveStream, setIsLiveStream] = useState(false)
+
+  // Fetch YouTube video metadata whenever in video mode so we always know the exact video topic
+  useEffect(() => {
+    if (!isVideoMode || !roomSettings.videoUrl) return
+    const fetchInfo = async () => {
+      try {
+        const res = await fetch(`${API_URL}/transcription/youtube-info?url=${encodeURIComponent(roomSettings.videoUrl)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.title) {
+            videoInfoRef.current = data
+            console.log('[VIDEO] Loaded video topic from YouTube:', data.title)
+          }
+        }
+      } catch (_) {}
+    }
+    fetchInfo()
+  }, [isVideoMode, roomSettings.videoUrl, token])
   // Teacher-side editing of the room's YouTube link (live or normal) after creation.
   const [editingLink, setEditingLink] = useState(false)
   const [linkDraft, setLinkDraft] = useState('')
@@ -1063,9 +1100,22 @@ function RoomDetailPage() {
   }
 
   const handleManualGenerateQuestions = async () => {
-    const textToUse = segmentTranscript.trim() || transcript
+    let textToUse = segmentTranscript.trim() || transcript.trim()
+    if (!textToUse || textToUse.length < 10) {
+      if (isVideoMode) {
+        const vData = ytPlayerRef.current?.getVideoData?.() || videoInfoRef.current
+        const vTitle = vData?.title || ''
+        const vAuthor = vData?.author || ''
+        if (vTitle) {
+          textToUse = `${vTitle}${vAuthor ? ' by ' + vAuthor : ''}`
+        }
+      }
+      if (!textToUse && roomSettings?.topic) {
+        textToUse = roomSettings.topic
+      }
+    }
     if (!textToUse) {
-      alert('No transcript available to generate questions from.')
+      alert('No transcript or video topic available to generate questions from.')
       return
     }
 
@@ -1744,6 +1794,7 @@ function RoomDetailPage() {
                       onPause={handleVideoPause}
                       onEnd={handleVideoPause}
                       onLiveStatus={handleLiveStatus}
+                      onVideoInfo={(info) => { if (info?.title) videoInfoRef.current = info }}
                     />
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#dc2626', fontSize: '13px' }}>

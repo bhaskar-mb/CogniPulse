@@ -305,7 +305,7 @@ ${typeInstructions}
 
 CRITICAL GROUNDING, LENGTH AND WORDING RULES:
 1. CONCISE & READABLE QUESTIONS: Every question stem must be short, crisp, and direct (10 to 20 words maximum). NEVER copy entire long speech paragraphs, run-on sentences, or conversational fillers (like 'thank you', 'um', 'hello').
-2. STRICT FACTUAL ACCURACY: Every question, correct answer, and explanation must be directly grounded in and verifiable from the provided SESSION CONTENT. Do not hallucinate, speculate, or introduce external trivia.
+2. STRICT FACTUAL ACCURACY: Every question, correct answer, and explanation must be directly grounded in the provided SESSION CONTENT or its specified subject topic. If the content is a lecture/video title or topic (e.g., Python recursion, algorithms, data structures), test the real principles, syntax, mechanisms, and common concepts of that topic. Do not hallucinate or invent non-existent functions.
 3. BAN META-REFERENCES: Never refer to the "source material", session transcript, "the speaker said", or use words like "speaker", "narrator", "presenter", "author", "video", or "lecture". Write questions directly as clear, standalone academic assessment questions about the subject matter itself (e.g., "What causes the O-ring to fail at low temperatures?" NOT "What did the speaker say caused the O-ring to fail?").
 4. HIGH-QUALITY OPTIONS & DISTRACTORS:
    - For MCQ: Exactly 1 unequivocally correct option and 3 plausible, realistic distractors related to the topic (keep options concise, 2-6 words each; no silly distractors; no "All of the above" or "None of the above").
@@ -333,21 +333,54 @@ OUTPUT FORMAT (respond ONLY with valid JSON, no markdown outside the JSON block)
 
 // Parse questions from AI response
 export function parseQuestions(responseText, expectedTypes = []) {
+  if (!responseText) return []
   try {
-    let jsonStr = responseText
+    let jsonStr = responseText.trim()
     
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
     if (jsonMatch) {
-      jsonStr = jsonMatch[1]
+      jsonStr = jsonMatch[1].trim()
     }
     
-    const objMatch = jsonStr.match(/\{[\s\S]*\}/)
-    if (!objMatch) {
-      return []
+    // Clean trailing commas before closing brackets
+    jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1')
+
+    let parsed = null
+    try {
+      const objMatch = jsonStr.match(/\{[\s\S]*\}/)
+      if (objMatch) {
+        parsed = JSON.parse(objMatch[0])
+      }
+    } catch (_) {
+      // If parsing whole object failed, try to close truncated array or extract objects
+      try {
+        const lastBracket = jsonStr.lastIndexOf('}')
+        if (lastBracket > 0) {
+          const cut = jsonStr.substring(0, lastBracket + 1) + ']}'
+          parsed = JSON.parse(cut)
+        }
+      } catch (__) {}
     }
-    
-    const parsed = JSON.parse(objMatch[0])
-    const questions = parsed.questions || []
+
+    let questions = parsed?.questions
+    if (!Array.isArray(questions) || questions.length === 0) {
+      // Try array match directly
+      const arrMatch = jsonStr.match(/\[\s*\{[\s\S]*\}\s*\]/)
+      if (arrMatch) {
+        try { questions = JSON.parse(arrMatch[0]) } catch (_) {}
+      }
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      // Regex extraction of individual question objects
+      const qMatches = jsonStr.match(/\{[^{}]*"question"[^{}]*"options"[^{}]*\}/g)
+      if (qMatches) {
+        questions = qMatches.map(m => {
+          try { return JSON.parse(m) } catch (_) { return null }
+        }).filter(Boolean)
+      }
+    }
+
     if (!Array.isArray(questions) || questions.length === 0) {
       return []
     }
@@ -562,7 +595,7 @@ async function generateWithGoogle(prompt, model = 'gemini-flash-lite-latest') {
           ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 2000
+            maxOutputTokens: 4000
           }
         })
       })
