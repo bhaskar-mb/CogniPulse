@@ -143,7 +143,7 @@ function RoomDetailPage() {
     if (room?.code && user?._id) {
       joinRoom(room.code, user._id)
     }
-  }, [room?.code, user?._id])
+  }, [room?.code, user?._id, isConnected])
 
   // Listen for room:joined event
   useEffect(() => {
@@ -1214,11 +1214,17 @@ function RoomDetailPage() {
         setGeneratedQuestions(prev => [data.question, ...prev])
 
         // Emit to students via socket
-        if (socket && isConnected && room?.code) {
+        if (socket && room?.code) {
           socket.emit('new_question', {
             roomCode: room.code.toUpperCase(),
             question: data.question
           })
+          if (room._id) {
+            socket.emit('new_question', {
+              roomCode: String(room._id),
+              question: data.question
+            })
+          }
         }
       }
     } catch (error) {
@@ -1256,11 +1262,17 @@ function RoomDetailPage() {
         const data = await response.json()
         setGeneratedQuestions(prev => [data.question, ...prev])
 
-        if (socket && isConnected && room?.code) {
+        if (socket && room?.code) {
           socket.emit('new_question', {
             roomCode: room.code.toUpperCase(),
             question: data.question
           })
+          if (room._id) {
+            socket.emit('new_question', {
+              roomCode: String(room._id),
+              question: data.question
+            })
+          }
         }
       }
     } catch (error) {
@@ -1304,14 +1316,20 @@ function RoomDetailPage() {
         // Emit to socket for students to receive (include roomCode)
         console.log('Emitting new_question event:', { roomCode: room.code, question: data.question })
         console.log('Socket connected:', !!socket, 'isConnected:', isConnected, 'isRoomJoined:', isRoomJoined)
-        if (socket && isConnected && room?.code) {
+        if (socket && room?.code) {
           socket.emit('new_question', {
             roomCode: room.code.toUpperCase(),
             question: data.question
           })
+          if (room._id) {
+            socket.emit('new_question', {
+              roomCode: String(room._id),
+              question: data.question
+            })
+          }
           console.log('new_question event emitted successfully')
         } else {
-          console.error('Socket not available or not connected:', { socket: !!socket, isConnected })
+          console.error('Socket not available:', { socket: !!socket, isConnected })
         }
       } else {
         const errorData = await response.json()

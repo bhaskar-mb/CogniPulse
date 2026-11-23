@@ -529,11 +529,24 @@ function scheduleSocketExpiry(socket) {
 // (not just a bool) lets callers use room._id (e.g. to mark the current question) without re-looking
 // it up; truthiness of the result is still a valid owner check.
 async function verifyRoomOwner(socket, roomCode) {
-  if (socket.data?.role !== 'teacher' || !roomCode) return null
+  if (!roomCode) return null
+  let userId = socket.data?.userId
+  let role = socket.data?.role
+  if (!userId && socket.handshake?.auth?.token) {
+    try {
+      const authed = await authenticateSocket(socket, socket.handshake.auth.token)
+      userId = authed.userId
+      role = authed.role
+    } catch {}
+  }
+  if (role !== 'teacher' || !userId) return null
   try {
     const Room = (await import('./models/Room.js')).default
-    const room = await Room.findByCode(roomCode)
-    return (room && room.teacher.toString() === String(socket.data.userId)) ? room : null
+    let room = await Room.findByCode(roomCode)
+    if (!room && (await import('mongoose')).default.Types.ObjectId.isValid(roomCode)) {
+      room = await Room.findById(roomCode)
+    }
+    return (room && room.teacher.toString() === String(userId)) ? room : null
   } catch {
     return null
   }
@@ -630,9 +643,22 @@ io.on('connection', (socket) => {
 
   // Join room — identity is taken from the AUTHENTICATED socket, not the client payload
   // (so a client can't join/register as another user).
-  socket.on('room:join', async ({ roomCode }) => {
-    const userId = socket.data?.userId
-    const role = socket.data?.role
+  socket.on('room:join', async ({ roomCode, token }) => {
+    let userId = socket.data?.userId
+    let role = socket.data?.role
+
+    // Resilience: if socket.data identity is not set yet, attempt immediate resolution
+    const tokenToTry = token || socket.handshake?.auth?.token
+    if (!userId && tokenToTry) {
+      try {
+        const authed = await authenticateSocket(socket, tokenToTry)
+        userId = authed.userId
+        role = authed.role
+      } catch (authErr) {
+        console.warn('[socket room:join] inline token auth failed:', authErr.message)
+      }
+    }
+
     if (!userId) { socket.emit('room:error', { error: 'Not authenticated' }); return }
     // Token this socket authenticated with has since lapsed — refuse the join and tell the client to
     // re-login rather than trusting the userId cached at connect time.
@@ -645,10 +671,19 @@ io.on('connection', (socket) => {
     try {
       const Room = (await import('./models/Room.js')).default
       const RoomMember = (await import('./models/RoomMember.js')).default
+      const mongoose = (await import('mongoose')).default
 
       // Authorize BEFORE subscribing to the room channel: resolve the room and check that this
       // caller is allowed in (teacher must own it; student may join an active room by code).
-      const room = await Room.findByCode(roomCode)
+      let room = await Room.findByCode(roomCode)
+      if (!room && mongoose.Types.ObjectId.isValid(roomCode)) {
+        room = await Room.findById(roomCode)
+      }
+      if (!room) {
+        socket.emit('room:error', { error: 'Room not found' })
+        return
+      }
+
       const decision = canJoinRoom({ role, userId, room })
       if (!decision.ok) {
         socket.emit('room:error', { error: decision.error })
@@ -664,25 +699,55 @@ io.on('connection', (socket) => {
         )
       }
 
-      // Authorized → now join the socket room and announce. The room-wide event carries only the
-      // aggregate count, never the joiner's userId (which would let any peer harvest participant IDs).
+      // Authorized → now join all room channel variants and announce.
       const canonicalCode = room?.code || roomCode.toUpperCase().trim()
-      socket.join(canonicalCode)
-      if (canonicalCode !== roomCode) {
-        socket.join(roomCode) // Join raw roomCode as well for resilience
+      if (canonicalCode) {
+        socket.join(canonicalCode)
+        socket.join(canonicalCode.toUpperCase())
+        socket.join(canonicalCode.toLowerCase())
+      }
+      if (roomCode) {
+        socket.join(roomCode)
+      }
+      if (room._id) {
+        socket.join(String(room._id))
       }
       // Private per-user channel: the leaderboard fold pushes each student ONLY their own row here
-      // (privacy — a student never receives the full board, just the public top 10 + their own rank).
       socket.join('user:' + userId)
       const participantCount = await RoomMember.countDocuments({ roomId: room._id })
 
-      io.to(canonicalCode).emit('room:joined', { roomCode: canonicalCode, participants: participantCount })
+      const joinPayload = { roomCode: canonicalCode, participants: participantCount, roomId: room._id }
+      io.to(canonicalCode).emit('room:joined', joinPayload)
       if (canonicalCode !== roomCode) {
-        io.to(roomCode).emit('room:joined', { roomCode, participants: participantCount })
+        io.to(roomCode).emit('room:joined', joinPayload)
+      }
+      if (room._id) {
+        io.to(String(room._id)).emit('room:joined', joinPayload)
       }
 
       // Start question scheduler for this room (LPS feature)
       startQuestionScheduler(canonicalCode, io)
+
+      // Late-join recovery: if this room has an active live question, immediately deliver it to this socket!
+      if (room.currentQuestion) {
+        try {
+          const Question = (await import('./models/Question.js')).default
+          const currentQ = await Question.findById(room.currentQuestion).lean()
+          if (currentQ && currentQ.status === 'approved') {
+            const sanitized = sanitizeQuestionForStudents(currentQ)
+            const livePayload = {
+              questionId: currentQ._id,
+              question: sanitized,
+              timer: currentQ.timeToAnswer || 30,
+              startTime: Date.now()
+            }
+            socket.emit('new_question', sanitized)
+            socket.emit('question:started', livePayload)
+          }
+        } catch (recoverErr) {
+          console.warn('[socket room:join] live question recovery error:', recoverErr.message)
+        }
+      }
 
       // Seed the joining socket with the teacher's last known video position (video mode) so a
       // reload/late-join can immediately seek forward up to where the class is.
@@ -738,16 +803,24 @@ io.on('connection', (socket) => {
     const room = await verifyRoomOwner(socket, data?.roomCode)
     if (!room) return
     if (data.questionId) setLiveQuestion(room._id, data.questionId)
+    const sanitized = sanitizeQuestionForStudents(data.question)
     const payload = {
       questionId: data.questionId,
-      question: sanitizeQuestionForStudents(data.question),
-      timer: data.timer,
+      question: sanitized,
+      timer: data.timer || data.question?.timeToAnswer || 30,
       startTime: Date.now()
     }
     const canonicalCode = room.code
-    io.to(canonicalCode).emit('question:started', payload)
-    if (data.roomCode && data.roomCode !== canonicalCode) {
-      io.to(data.roomCode).emit('question:started', payload)
+    const targets = [...new Set([
+      canonicalCode,
+      canonicalCode.toUpperCase(),
+      canonicalCode.toLowerCase(),
+      String(room._id),
+      data.roomCode
+    ].filter(Boolean))]
+    for (const target of targets) {
+      io.to(target).emit('question:started', payload)
+      io.to(target).emit('new_question', sanitized)
     }
   })
 
@@ -759,13 +832,19 @@ io.on('connection', (socket) => {
       questionId: data.questionId,
       results: data.results
     }
-    io.to(canonicalCode).emit('question:ended', payload)
-    if (data.roomCode && data.roomCode !== canonicalCode) {
-      io.to(data.roomCode).emit('question:ended', payload)
+    const targets = [...new Set([
+      canonicalCode,
+      canonicalCode.toUpperCase(),
+      canonicalCode.toLowerCase(),
+      String(room._id),
+      data.roomCode
+    ].filter(Boolean))]
+    for (const target of targets) {
+      io.to(target).emit('question:ended', payload)
     }
   })
 
-  // New question pushed by the teacher (manually created)
+  // New question pushed by the teacher (manually created or approved)
   socket.on('new_question', async (data) => {
     const room = await verifyRoomOwner(socket, data?.roomCode)
     if (!room) {
@@ -776,10 +855,23 @@ io.on('connection', (socket) => {
       const qId = data.question._id || data.question.id
       if (qId) setLiveQuestion(room._id, qId)
       const sanitized = sanitizeQuestionForStudents(data.question)
+      const startedPayload = {
+        questionId: qId,
+        question: sanitized,
+        timer: data.question.timeToAnswer || data.timer || 30,
+        startTime: Date.now()
+      }
       const canonicalCode = room.code
-      io.to(canonicalCode).emit('new_question', sanitized)
-      if (data.roomCode && data.roomCode !== canonicalCode) {
-        io.to(data.roomCode).emit('new_question', sanitized)
+      const targets = [...new Set([
+        canonicalCode,
+        canonicalCode.toUpperCase(),
+        canonicalCode.toLowerCase(),
+        String(room._id),
+        data.roomCode
+      ].filter(Boolean))]
+      for (const target of targets) {
+        io.to(target).emit('new_question', sanitized)
+        io.to(target).emit('question:started', startedPayload)
       }
     }
   })

@@ -157,7 +157,22 @@ router.post('/', authorize('teacher'), requireApprovedTeacher, async (req, res) 
           const sanitized = typeof sanitizeQuestionForStudents === 'function' 
             ? sanitizeQuestionForStudents(newQuestion)
             : newQuestion
-          io.to(room.code).emit('new_question', sanitized)
+          const startedPayload = {
+            questionId: newQuestion._id,
+            question: sanitized,
+            timer: newQuestion.timeToAnswer || timeToAnswer || 30,
+            startTime: Date.now()
+          }
+          const targets = [...new Set([
+            room.code,
+            room.code.toUpperCase(),
+            room.code.toLowerCase(),
+            String(room._id)
+          ].filter(Boolean))]
+          for (const target of targets) {
+            io.to(target).emit('new_question', sanitized)
+            io.to(target).emit('question:started', startedPayload)
+          }
         }
       } catch (socketErr) {
         console.error('Error broadcasting new_question from REST handler:', socketErr)

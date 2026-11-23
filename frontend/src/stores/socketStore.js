@@ -44,24 +44,36 @@ export const useSocketStore = create((set, get) => ({
     socket.on('connect', () => {
       console.log('Socket connected')
       set({ isConnected: true })
-      if (token) {
-        socket.emit('authenticate', { token })
+      const curToken = token || useAuthStore.getState().token
+      if (curToken) {
+        socket.auth = { token: curToken }
+        socket.emit('authenticate', { token: curToken })
       }
       const { joinedRoom } = get()
       if (joinedRoom?.roomCode) {
-        socket.emit('room:join', { roomCode: joinedRoom.roomCode, userId: joinedRoom.userId })
+        socket.emit('room:join', { 
+          roomCode: joinedRoom.roomCode, 
+          userId: joinedRoom.userId,
+          token: joinedRoom.token || curToken 
+        })
       }
     })
 
     socket.io.on('reconnect', (attempt) => {
       console.log('Socket reconnected after attempt:', attempt)
       set({ isConnected: true })
-      if (token) {
-        socket.emit('authenticate', { token })
+      const curToken = token || useAuthStore.getState().token
+      if (curToken) {
+        socket.auth = { token: curToken }
+        socket.emit('authenticate', { token: curToken })
       }
       const { joinedRoom } = get()
       if (joinedRoom?.roomCode) {
-        socket.emit('room:join', { roomCode: joinedRoom.roomCode, userId: joinedRoom.userId })
+        socket.emit('room:join', { 
+          roomCode: joinedRoom.roomCode, 
+          userId: joinedRoom.userId,
+          token: joinedRoom.token || curToken 
+        })
       }
     })
 
@@ -142,10 +154,14 @@ export const useSocketStore = create((set, get) => ({
 
   joinRoom: (roomCode, userId) => {
     const { socket } = get()
+    const token = useAuthStore.getState().token
     // Remember the room so the socket auto-rejoins after a reconnect (see the 'connect' handler).
-    set({ joinedRoom: { roomCode, userId } })
+    set({ joinedRoom: { roomCode, userId, token } })
     if (socket) {
-      socket.emit('room:join', { roomCode, userId })
+      if (token) {
+        socket.auth = { token }
+      }
+      socket.emit('room:join', { roomCode, userId, token })
     }
   },
 

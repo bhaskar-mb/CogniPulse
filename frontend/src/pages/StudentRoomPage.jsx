@@ -88,7 +88,12 @@ function StudentRoomPage() {
     }
   }, [token, socket])
 
-
+  // Re-join room as soon as socket connects or reconnects
+  useEffect(() => {
+    if (isConnected && room?.code && user?._id) {
+      joinRoom(room.code, user._id)
+    }
+  }, [isConnected, room?.code, user?._id])
 
   const handleQuestionPayload = (data) => {
     let q = (data && data.question && typeof data.question === 'object') ? data.question : data
@@ -96,6 +101,15 @@ function StudentRoomPage() {
       q = { question: q, type: 'MCQ', options: [] }
     }
     if (!q || (!q.question && !q._id)) return
+
+    // If student is already answering this exact question, don't restart countdown or clear selections
+    const incomingId = String(q._id || q.id || '')
+    if (incomingId && currentQuestion) {
+      const activeId = String(currentQuestion._id || currentQuestion.id || '')
+      if (incomingId === activeId) {
+        return
+      }
+    }
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
@@ -203,19 +217,35 @@ function StudentRoomPage() {
         return new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             socket.off('room:joined', handleRoomJoined)
+            socket.off('room:error', handleRoomError)
             fetchPastResponses(roomData._id, user._id)
             resolve()
           }, 3000)
 
           const handleRoomJoined = (data) => {
-            if (data.roomCode === roomData.code) {
+            const dataCode = String(data?.roomCode || '').toUpperCase()
+            const myCode = String(roomData.code || '').toUpperCase()
+            const matchId = data?.roomId && String(data.roomId) === String(roomData._id)
+            if (dataCode === myCode || matchId) {
               clearTimeout(timeout)
               socket.off('room:joined', handleRoomJoined)
+              socket.off('room:error', handleRoomError)
               fetchPastResponses(roomData._id, user._id)
               resolve()
             }
           }
+
+          const handleRoomError = (err) => {
+            console.warn('[StudentRoom] room:error received:', err)
+            const curToken = useAuthStore.getState().token
+            if (curToken && socket) {
+              socket.emit('authenticate', { token: curToken })
+              socket.emit('room:join', { roomCode: roomData.code, userId: user._id, token: curToken })
+            }
+          }
+
           socket.on('room:joined', handleRoomJoined)
+          socket.on('room:error', handleRoomError)
           joinRoom(roomData.code, user._id)
         })
       }
@@ -225,6 +255,18 @@ function StudentRoomPage() {
       setIsLoading(false)
     }
   }
+
+  // Background check: if no question is active, check past responses every 4 seconds
+  // so any mobile sleep/WS packet drop seamlessly catches newly launched polls.
+  useEffect(() => {
+    if (currentQuestion || sessionEnded || !room?._id || !user?._id) return
+
+    const pollInterval = setInterval(() => {
+      fetchPastResponses(room._id, user._id)
+    }, 4000)
+
+    return () => clearInterval(pollInterval)
+  }, [currentQuestion, sessionEnded, room?._id, user?._id])
   
   const fetchPastResponses = async (roomId, studentId) => {
     if (!roomId || !studentId) {
